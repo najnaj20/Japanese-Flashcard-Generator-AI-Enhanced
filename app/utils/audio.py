@@ -38,7 +38,7 @@ class AudioProcessor:
 
     def _setup_logger(self):
         """Setup logger untuk class"""
-        logger = logging.getLogger(__name__)
+        logger = logging.getLogger("app.utils.audio")
         logger.setLevel(logging.INFO)
         if not logger.handlers:
             handler = logging.StreamHandler()
@@ -91,7 +91,7 @@ class AudioProcessor:
                     'preferredcodec': 'mp3',
                     'preferredquality': '192',
                 }],
-                'outtmpl': str(output_path.with_suffix('')),  # yt-dlp akan menambahkan .mp3
+                'outtmpl': str(output_path.with_suffix('')),
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True
@@ -100,7 +100,6 @@ class AudioProcessor:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
             
-            # Verifikasi file telah dibuat
             if not output_path.exists():
                 raise FileNotFoundError(f"Downloaded file not found at {output_path}")
                 
@@ -119,7 +118,7 @@ class AudioProcessor:
             language (str): Kode bahasa (default: 'ja' untuk Jepang)
             
         Returns:
-            list: List dari segmen transkripsi
+            dict: Dictionary berisi transkripsi lengkap
         """
         try:
             audio_path = Path(audio_path)
@@ -134,16 +133,18 @@ class AudioProcessor:
                 verbose=False
             )
             
-            segments = []
-            for segment in result["segments"]:
-                segments.append({
-                    'start': segment['start'],
-                    'end': segment['end'],
-                    'text': segment['text'].strip()
-                })
+            # Mengambil teks dari hasil transkripsi
+            if isinstance(result, dict) and 'text' in result:
+                full_text = result['text'].strip()
+            else:
+                # Jika format hasil berbeda, gabungkan teks dari segments
+                full_text = ' '.join([segment['text'].strip() for segment in result['segments']])
             
-            self.logger.info(f"Transcription completed: {len(segments)} segments found")
-            return segments
+            self.logger.info("Transcription completed successfully")
+            return {
+                'text': full_text,
+                'language': language
+            }
             
         except Exception as e:
             self.logger.error(f"Transcription failed: {str(e)}")
@@ -158,7 +159,7 @@ class AudioProcessor:
             language (str): Kode bahasa untuk transkripsi
             
         Returns:
-            list: List dari segmen transkripsi
+            dict: Dictionary berisi transkripsi lengkap
         """
         audio_path = None
         try:
@@ -169,9 +170,9 @@ class AudioProcessor:
             self.logger.info(f"Audio downloaded to: {audio_path}")
             
             # Transkripsi audio
-            segments = self.transcribe_audio(audio_path, language)
+            result = self.transcribe_audio(audio_path, language)
             
-            return segments
+            return result
             
         except Exception as e:
             self.logger.error(f"Error processing YouTube URL: {str(e)}")
@@ -194,7 +195,7 @@ class AudioProcessor:
             language (str): Kode bahasa untuk transkripsi
             
         Returns:
-            list: List dari segmen transkripsi
+            dict: Dictionary berisi transkripsi lengkap
         """
         try:
             file_path = Path(file_path)

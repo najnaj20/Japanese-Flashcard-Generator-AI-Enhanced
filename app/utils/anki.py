@@ -2,9 +2,10 @@ import genanki
 import random
 import os
 import logging
+import streamlit as st
 from gtts import gTTS
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Dict, Union
 import pandas as pd
 
 class AnkiDeckGenerator:
@@ -19,22 +20,23 @@ class AnkiDeckGenerator:
         self.temp_dir = Path(temp_dir)
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         
-        # Model ID dan Deck ID yang konsisten
-        self.model_id = random.randrange(1 << 30, 1 << 31)
-        self.deck_id = random.randrange(1 << 30, 1 << 31)
+        # Gunakan ID yang konsisten untuk model dan deck
+        self.model_id = 1963760736  # ID tetap untuk model
+        self.deck_id = 1963760737   # ID tetap untuk deck
         
         self.model = self._create_model()
+        
+        # Inisialisasi status di session state
+        if 'current_deck_path' not in st.session_state:
+            st.session_state.current_deck_path = None
 
     def _create_model(self):
         """
-        Buat model Anki dengan styling yang lebih baik
-        
-        Returns:
-            genanki.Model: Model untuk kartu Anki
+        Buat model untuk kartu Anki dengan desain yang lebih baik
         """
         return genanki.Model(
-            self.model_id,
-            'Japanese Vocabulary Model',
+            model_id=self.model_id,
+            name='Japanese Vocabulary Model',
             fields=[
                 {'name': 'Word'},
                 {'name': 'Translation'},
@@ -45,85 +47,101 @@ class AnkiDeckGenerator:
                 {
                     'name': 'Card 1',
                     'qfmt': '''
-                        <div class="word">{{Word}}</div>
+                        <div class="card-front">
+                            <div class="word">{{Word}}</div>
+                            <div class="audio">{{Audio}}</div>
+                            <div class="hint">Click to see translation</div>
+                        </div>
                     ''',
                     'afmt': '''
-                        <div class="word">{{Word}}</div>
-                        <hr>
-                        <div class="translation">{{Translation}}</div>
-                        {{#Context}}
-                        <div class="context">
-                            <div class="context-label">Context:</div>
-                            {{Context}}
+                        <div class="card-back">
+                            <div class="word">{{Word}}</div>
+                            <div class="audio">{{Audio}}</div>
+                            <hr>
+                            <div class="translation">{{Translation}}</div>
+                            <div class="context">Context: {{Context}}</div>
                         </div>
-                        {{/Context}}
-                        <div class="audio">{{Audio}}</div>
                     ''',
-                },
+                }
             ],
             css='''
                 .card {
-                    font-family: arial;
+                    font-family: "Noto Sans JP", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, sans-serif;
                     font-size: 20px;
                     text-align: center;
-                    color: black;
-                    background-color: white;
+                    color: #2c3e50;
+                    background-color: #ecf0f1;
+                    padding: 20px;
+                    max-width: 600px;
+                    margin: 0 auto;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                }
+                .card-front, .card-back {
                     padding: 20px;
                 }
                 .word {
-                    font-size: 40px;
-                    color: #333;
-                    margin-bottom: 20px;
+                    font-size: 32px;
+                    color: #2980b9;
+                    margin: 20px 0;
+                    font-weight: bold;
                 }
                 .translation {
-                    font-size: 25px;
-                    color: #666;
+                    font-size: 24px;
+                    color: #27ae60;
                     margin: 15px 0;
                 }
                 .context {
                     font-size: 18px;
-                    color: #888;
-                    margin-top: 15px;
-                    padding: 10px;
-                    background-color: #f5f5f5;
-                    border-radius: 5px;
+                    color: #7f8c8d;
+                    margin: 15px 0;
+                    font-style: italic;
+                    line-height: 1.5;
                 }
-                .context-label {
-                    font-weight: bold;
-                    margin-bottom: 5px;
+                .hint {
+                    font-size: 14px;
+                    color: #95a5a6;
+                    margin-top: 20px;
+                    font-style: italic;
                 }
-                .audio {
-                    margin-top: 15px;
+                hr {
+                    border: none;
+                    border-top: 2px solid #bdc3c7;
+                    margin: 20px 0;
                 }
             '''
         )
 
     def create_audio_files(self, df: pd.DataFrame) -> List[str]:
         """
-        Buat file audio untuk setiap kata
-        
-        Args:
-            df (pd.DataFrame): DataFrame dengan kolom 'word'
-            
-        Returns:
-            List[str]: List path file audio yang dibuat
+        Buat file audio untuk setiap kata dengan penanganan error yang lebih baik
         """
         audio_files = []
         try:
             for i, row in df.iterrows():
-                word = row['word']
-                # Buat filename yang aman
+                word_data = row['word']
+                if isinstance(word_data, dict):
+                    word = word_data.get('word', '')
+                else:
+                    word = str(word_data)
+
+                if not word:
+                    audio_files.append("")
+                    continue
+
                 safe_word = "".join(x for x in word if x.isalnum() or x in (' ', '-', '_'))
                 audio_path = self.temp_dir / f"word_{i}_{safe_word}.mp3"
                 
                 try:
-                    tts = gTTS(text=word, lang='ja')
-                    tts.save(str(audio_path))
+                    # Tambahkan pengecekan file yang sudah ada
+                    if not audio_path.exists():
+                        tts = gTTS(text=word, lang='ja')
+                        tts.save(str(audio_path))
                     audio_files.append(str(audio_path))
-                    self.logger.info(f"Created audio file for: {word}")
+                    self.logger.info(f"Audio file ready for: {word}")
                 except Exception as e:
                     self.logger.warning(f"Failed to create audio for word '{word}': {str(e)}")
-                    audio_files.append("")  # Tambahkan string kosong jika gagal
+                    audio_files.append("")
                     
             return audio_files
             
@@ -133,22 +151,24 @@ class AnkiDeckGenerator:
 
     def generate_deck(self, df: pd.DataFrame, audio_files: List[str]) -> str:
         """
-        Generate deck Anki dari DataFrame dan file audio
-        
-        Args:
-            df (pd.DataFrame): DataFrame dengan kolom 'word', 'translation', dan 'context'
-            audio_files (List[str]): List path file audio
-            
-        Returns:
-            str: Path ke file .apkg yang dihasilkan
+        Generate deck Anki dengan penanganan status yang lebih baik
         """
         try:
-            # Buat deck
-            deck = genanki.Deck(self.deck_id, 'Japanese Vocabulary from Text')
+            deck = genanki.Deck(
+                self.deck_id,
+                'Japanese Vocabulary from Text'
+            )
             
-            # Tambahkan notes
             valid_audio_files = []
             for i, (_, row) in enumerate(df.iterrows()):
+                word_data = row['word']
+                if isinstance(word_data, dict):
+                    word = word_data.get('word', '')
+                    reading = word_data.get('reading', '')
+                    word_field = f"{word} [{reading}]" if reading else word
+                else:
+                    word_field = str(word_data)
+
                 audio_path = audio_files[i] if i < len(audio_files) else ""
                 
                 if audio_path and os.path.exists(audio_path):
@@ -161,22 +181,28 @@ class AnkiDeckGenerator:
                 note = genanki.Note(
                     model=self.model,
                     fields=[
-                        row['word'],
-                        row.get('translation', ''),
-                        row.get('context', ''),
+                        word_field,
+                        str(row.get('translation', '')),
+                        str(row.get('context', '')),
                         audio_field
                     ]
                 )
                 deck.add_note(note)
-                self.logger.info(f"Added note for word: {row['word']}")
+                self.logger.info(f"Added note for word: {word_field}")
 
-            # Buat dan simpan package
+            # Buat package dengan timestamp untuk menghindari konflik
+            output_path = self.temp_dir / f'japanese_vocabulary.apkg'
+            
             package = genanki.Package(deck)
             if valid_audio_files:
                 package.media_files = valid_audio_files
             
-            output_path = self.temp_dir / 'japanese_vocabulary.apkg'
             package.write_to_file(str(output_path))
+            
+            # Update session state dengan path deck terbaru
+            st.session_state.current_deck_path = str(output_path)
+            st.session_state.flashcard_created = True
+            
             self.logger.info(f"Successfully generated Anki deck at: {output_path}")
             
             return str(output_path)
@@ -185,18 +211,37 @@ class AnkiDeckGenerator:
             self.logger.error(f"Error generating deck: {str(e)}")
             raise
 
-    def cleanup(self):
-        """Bersihkan file audio temporary"""
+    def cleanup_old_files(self, keep_current=True):
+        """
+        Membersihkan file lama dengan opsi untuk menyimpan file terbaru
+        
+        Args:
+            keep_current (bool): Jika True, akan menyimpan file deck terbaru
+        """
         try:
-            for file in self.temp_dir.glob("word_*.mp3"):
+            current_deck = st.session_state.get('current_deck_path')
+            
+            # Hapus file audio
+            for file in self.temp_dir.glob("*.mp3"):
                 try:
                     file.unlink()
-                    self.logger.info(f"Removed temporary file: {file}")
                 except Exception as e:
-                    self.logger.warning(f"Failed to remove file {file}: {str(e)}")
+                    self.logger.warning(f"Failed to delete audio file {file}: {str(e)}")
+            
+            # Hapus file deck lama
+            for file in self.temp_dir.glob("*.apkg"):
+                if keep_current and current_deck and str(file) == current_deck:
+                    continue
+                try:
+                    file.unlink()
+                except Exception as e:
+                    self.logger.warning(f"Failed to delete deck file {file}: {str(e)}")
+                    
         except Exception as e:
             self.logger.error(f"Error during cleanup: {str(e)}")
 
     def __del__(self):
-        """Destructor untuk membersihkan file temporary"""
-        self.cleanup()
+        """
+        Cleanup saat object dihapus
+        """
+        self.cleanup_old_files(keep_current=True)
