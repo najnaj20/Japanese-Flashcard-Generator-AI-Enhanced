@@ -1,0 +1,1 @@
+# Japanese-Flashcard-Generator-AI-Enhanced
