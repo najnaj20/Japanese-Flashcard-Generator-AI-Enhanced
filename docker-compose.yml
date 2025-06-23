@@ -1,0 +1,44 @@
+services:
+  flashcard-app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: japanese-flashcard-app
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - OMP_NUM_THREADS=2
+      - MKL_NUM_THREADS=2
+      - TORCH_THREADS=2
+    env_file:
+      - .env
+    volumes:
+      - ./app/data:/app/app/data
+      - ./logs:/app/logs
+      - model_cache:/app/.cache
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '1.5'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    shm_size: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 60s
+      timeout: 15s
+      retries: 2
+      start_period: 120s
+
+volumes:
+  model_cache:
+    driver: local
+
+networks:
+  default:
+    name: flashcard-network
