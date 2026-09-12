@@ -1,160 +1,89 @@
 # 🇯🇵 Japanese Flashcard Generator — AI-Enhanced
 
-<div align="center">
+> 📖 [English](README.md) · [Bahasa Indonesia](README.id.md)
 
-**Turn Japanese videos & audio into Anki flashcards — automatically.**  
-**Ubah video & audio Jepang jadi flashcard Anki — secara otomatis.**
+Streamlit app that turns **Japanese videos (YouTube) or audio files** into
+**Anki-ready flashcard decks**: Whisper transcription → AI vocabulary
+extraction (kanji readings, JLPT level, example sentences) → `.apkg` export
+with TTS pronunciation audio. Built as a portfolio project: real pipeline,
+zero-GPU dependency (no PyTorch — `faster-whisper` int8 on CPU), runs even
+without an API key (free Google Translate fallback).
 
-[Features](#-features--fitur) · [How It Works](#-how-it-works--cara-kerja) · [Setup](#-setup--instalasi) · [Deploy on Streamlit Cloud](#-deploy-on-streamlit-cloud)
+**Pipeline:** YouTube/audio → faster-whisper → GPT vocabulary → genanki `.apkg` · **Stack:** Streamlit + CTranslate2 + OpenAI-compatible API
 
-</div>
-
----
-
-## ✨ Features / Fitur
-
-### 🇬🇧 English
-
-- **🎥 YouTube Processing** — paste any YouTube URL (Japanese podcasts, dramas, news, anime clips) and the app downloads and transcribes the audio.
-- **🎵 Audio Upload** — or upload your own audio files (mp3, wav, m4a, ogg).
-- **🧠 Speech-to-Text with Whisper** — transcription powered by `faster-whisper` (CTranslate2 backend, int8 quantized — fast even on CPU, no PyTorch needed).
-- **🔍 AI Vocabulary Extraction** — GPT-3.5 Turbo (or any OpenAI-compatible model) extracts useful Japanese vocabulary with kanji readings, JLPT level estimates, and natural example sentences.
-- **🌐 Smart Translation** — Japanese → English/Indonesian via GPT, with a **free Google Translate fallback** when no API key is set.
-- **🎴 Anki Export** — download ready-to-import `.apkg` flashcard decks with audio pronunciation (gTTS) on each card.
-
-### 🇮🇩 Bahasa Indonesia
-
-- **🎥 Proses YouTube** — tempel URL YouTube apa pun (podcast, drama, berita, klip anime Jepang); audio otomatis diunduh dan ditranskripsi.
-- **🎵 Upload Audio** — atau unggah file audio sendiri (mp3, wav, m4a, ogg).
-- **🧠 Speech-to-Text dengan Whisper** — transkripsi memakai `faster-whisper` (backend CTranslate2, int8 — cepat bahkan di CPU, tanpa PyTorch).
-- **🔍 Ekstraksi Kosakata AI** — GPT-3.5 Turbo (atau model kompatibel OpenAI lain) mengekstrak kosakata Jepang lengkap dengan bacaan kanji, estimasi level JLPT, dan contoh kalimat natural.
-- **🌐 Terjemahan Cerdas** — Jepang → Inggris/Indonesia via GPT, dengan **fallback Google Translate gratis** jika tidak ada API key.
-- **🎴 Ekspor Anki** — unduh deck flashcard `.apkg` yang siap di-import, lengkap dengan audio pelafalan (gTTS) di setiap kartu.
-
----
-
-## 🔄 How It Works / Cara Kerja
+## What's inside
 
 ```
-YouTube URL / Audio File
-        │
-        ▼
-  faster-whisper  ──►  Transcription / Transkripsi
-        │
-        ▼
-  GPT vocabulary extraction  ──►  Word list + readings + JLPT level
-  (fallback: Google Translate / deep-translator)
-        │
-        ▼
-  genanki + gTTS  ──►  Download .apkg  ──►  Import to Anki 🎉
-```
-
-1. Paste a YouTube URL **or** upload an audio file / Tempel URL YouTube **atau** unggah file audio
-2. Click **Process** and wait for the transcription / Klik **Process** dan tunggu hasil transkripsi
-3. Click **🔍 Extract Vocabulary** / Klik **🔍 Extract Vocabulary**
-4. Review the words, then **🎴 Create AI-Enhanced Flashcards** / Periksa kosakata, lalu **🎴 Create AI-Enhanced Flashcards**
-5. Download the `.apkg` and import it into Anki / Unduh `.apkg` lalu import ke Anki
-
----
-
-## 🚀 Setup / Instalasi
-
-### 🇬🇧 English
-
-```bash
-git clone https://github.com/najnaj20/Japanese-Flashcard-Generator-AI-Enhanced.git
-cd Japanese-Flashcard-Generator-AI-Enhanced
-
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-
-pip install -r requirements.txt
-
-streamlit run main.py
-```
-
-### 🇮🇩 Bahasa Indonesia
-
-```bash
-git clone https://github.com/najnaj20/Japanese-Flashcard-Generator-AI-Enhanced.git
-cd Japanese-Flashcard-Generator-AI-Enhanced
-
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-
-pip install -r requirements.txt   # tidak perlu torch/PyTorch 🎉
-
-streamlit run main.py             # buka http://localhost:8501
-```
-
-> **Requires / Butuh:** Python 3.10+ (tested on 3.11)
-
----
-
-## 🔑 API Key (Optional / Opsional)
-
-The app **runs without an API key** — translation falls back to free Google Translate. To unlock the full AI vocabulary enhancement / App tetap jalan **tanpa API key** — terjemahan memakai Google Translate gratis. Untuk fitur AI penuh:
-
-```bash
-export OPENAI_API_KEY="***"
-# optional — custom compatible endpoint (e.g. B.AI, Together, etc.)
-export OPENAI_BASE_URL="https://api.openai.com/v1"
-```
-
-On Streamlit Cloud, add these in **Settings → Secrets** as:
-
-```toml
-OPENAI_API_KEY="***"
-```
-
----
-
-## ☁️ Deploy on Streamlit Cloud
-
-1. Push this repo to GitHub (done ✅ / sudah ✅)
-2. Go to <https://share.streamlit.io> → sign in with GitHub
-3. **New app** → pick this repo, branch `main`, **Main script: `main.py`**
-4. Deploy. First Whisper model download takes ~1 minute on boot.
-5. (Optional) Add `OPENAI_API_KEY` under **Settings → Secrets**
-
-> ⚠️ **Note:** do not commit a local `.venv/` folder — Streamlit Cloud builds break when one is present. It is already covered by `.gitignore` here.
-
----
-
-## 🗂️ Project Structure / Struktur Proyek
-
-```
-├── main.py                  # Streamlit entry point / titik masuk
+Japanese-Flashcard-Generator-AI-Enhanced/
+├── main.py                  # Streamlit entry point (UI + flow orchestration)
 ├── app/
 │   ├── config/              # settings & logging
 │   └── utils/
-│       ├── audio.py         # yt-dlp download + faster-whisper transcription
+│       ├── audio.py         # yt-dlp download + faster-whisper transcription (int8, CPU)
 │       ├── ai_helper.py     # OpenAI-compatible vocabulary extraction
-│       ├── translator.py    # GPT translation + Google Translate fallback
+│       ├── translator.py    # GPT translation + free Google Translate fallback
 │       ├── vocabulary.py    # Japanese tokenizing (fugashi/unidic) & cleaning
-│       └── flashcard.py     # genanki .apkg generation + gTTS audio
+│       └── flashcard.py     # genanki .apkg generation + gTTS audio per card
 ├── requirements.txt         # lean deps — no torch 🎉
 ├── runtime.txt              # Python version for Streamlit Cloud
-└── .streamlit/config.toml   # theme & server config
+├── .streamlit/config.toml   # dark theme & server config
+└── Dockerfile               # optional container run
 ```
 
----
+## How to run
 
-## 🛠️ Tech Stack
+```bash
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt                        # no PyTorch needed
 
-`Streamlit` · `faster-whisper` · `OpenAI API (GPT-3.5)` · `deep-translator` · `yt-dlp` · `genanki` · `gTTS` · `fugashi/unidic-lite` · `pandas`
+streamlit run main.py
+# open http://localhost:8501
+```
 
----
+### Workflow
 
-## 📄 License
+1. Paste a **YouTube URL** or upload an **audio file** (mp3/wav/m4a/ogg)
+2. Click **Process** → wait for the Whisper transcription
+3. Click **🔍 Extract Vocabulary** → review words, readings, JLPT levels
+4. Click **🎴 Create AI-Enhanced Flashcards** → download the `.apkg`
+5. Import into **Anki** and start studying 🎉
 
-MIT — free to use, modify, and learn from. / Bebas digunakan, dimodifikasi, dan dipelajari.
+## 🔑 API key (optional)
 
----
+The app **runs without any key** — translation falls back to free Google
+Translate. To unlock the full GPT vocabulary enhancement, set:
 
-<div align="center">
+```bash
+export OPENAI_API_KEY="***"
+export OPENAI_BASE_URL="https://api…/v1"   # optional, any compatible endpoint
+```
 
-Built with ☕, 🍙 and Anki-colored procrastination.  
-*Made by [najnaj20](https://github.com/najnaj20)*
+On Streamlit Cloud: **Settings → Secrets** → `OPENAI_API_KEY="***"`.
 
-</div>
+## ☁️ Deploy on Streamlit Cloud
+
+1. Go to <https://share.streamlit.io> → sign in with GitHub
+2. **New app** → this repo, branch `main`, **Main script: `main.py`**
+3. Deploy — first boot downloads the Whisper base model (~1 min)
+
+> ⚠️ Never commit a local `.venv/` folder — Streamlit Cloud builds break when
+> one is present (already covered by `.gitignore`).
+
+## Honest limitations
+
+- **Whisper `base` model** is used for CPU friendliness; accuracy drops on
+  fast speech, names, and slang. Longer videos (>10 min) take a while on free-tier hardware.
+- **Vocabulary extraction quality** depends on the LLM available; without an
+  API key the app falls back to heuristic tokenizing + Google Translate, which
+  misses nuance (contextual readings, colloquial meanings).
+- **YouTube downloading** depends on `yt-dlp` keeping up with site changes —
+  if a video fails, uploading the audio file directly is the reliable path.
+- This is a **portfolio/learning tool**, not a substitute for a textbook or
+  SRS coaching; always review extracted words before importing decks.
+
+## Data sources & licenses
+
+- **OpenAI / compatible LLM APIs** for enhancement (your own key, optional).
+- **Google Translate** via `deep-translator` as the free fallback.
+- **gTTS** for card pronunciation audio (Google Translate TTS endpoint).
+- Code licensed **MIT** — free to use, modify, and learn from.
