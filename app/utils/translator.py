@@ -12,25 +12,18 @@ class JapaneseTranslator:
         Args:
             api_key: OpenAI API key (optional, will use environment variable if not provided)
         """
-        try:
-            # Coba ambil API key dari environment variable jika tidak disediakan
-            if api_key is None:
-                api_key = os.getenv('OPENAI_API_KEY')
-            
-            if not api_key:
-                raise ValueError("API Key untuk OpenAI tidak ditemukan. Set OPENAI_API_KEY environment variable.")
-            
+        # Coba ambil API key dari environment variable jika tidak disediakan
+        if api_key is None:
+            api_key = os.getenv('OPENAI_API_KEY')
+
+        if api_key and api_key != "missing-key":
             # Initialize OpenAI client
             self.client = openai.OpenAI(api_key=api_key)
-            
-            # Test connection
-            self._test_connection()
-            
             logging.info("OpenAI Translator berhasil diinisialisasi")
-            
-        except Exception as e:
-            logging.error(f"Gagal inisialisasi OpenAI Translator: {e}")
-            raise
+        else:
+            # Tanpa key: gunakan fallback gratis (deep-translator / Google Translate)
+            self.client = None
+            logging.warning("OPENAI_API_KEY tidak tersedia — translator memakai fallback Google Translate")
 
     def _test_connection(self):
         """Test OpenAI API connection"""
@@ -61,7 +54,10 @@ class JapaneseTranslator:
         """
         if not text or not text.strip():
             return ""
-            
+
+        if self.client is None:
+            return self._fallback_translation(text, src, dest)
+
         try:
             # Language mapping
             lang_map = {

@@ -18,14 +18,17 @@ class AIHelper:
         """
         self.logger = self._setup_logger()
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
-        
+        # OpenAI-compatible base URL (kosong = api.openai.com resmi)
+        self.base_url = os.environ.get("OPENAI_BASE_URL") or None
+
         if not self.api_key:
             self.logger.warning("API key tidak ditemukan. Pastikan OPENAI_API_KEY diatur di environment variables")
-        
-        # Inisialisasi klien async
-        self.async_client = AsyncOpenAI(api_key=self.api_key)
-        # Inisialisasi klien sync untuk penggunaan dalam fungsi yang bukan async
-        self.sync_client = OpenAI(api_key=self.api_key)
+
+        # Inisialisasi klien (lazy-safe: placeholder key agar tak crash tanpa OPENAI_API_KEY;
+        # panggilan API sesungguhnya akan gagal dengan jelas jika key belum diisi)
+        _key = self.api_key or "missing-key"
+        self.async_client = AsyncOpenAI(api_key=_key, base_url=self.base_url)
+        self.sync_client = OpenAI(api_key=_key, base_url=self.base_url)
         
         # Simpan nama model
         self.model = model

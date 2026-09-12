@@ -1,9 +1,8 @@
-import whisper
+from faster_whisper import WhisperModel
 import yt_dlp
 import os
 import logging
 import warnings
-import torch
 import shutil
 import tempfile
 from datetime import datetime
@@ -93,59 +92,56 @@ class AudioProcessor:
 
     def setup_whisper_model(self, model_type):
         """
-        Setup model Whisper dengan handling cache directory yang proper
-        
+        Setup model Whisper (CTranslate2 backend) dengan handling cache directory yang proper
+
         Args:
             model_type (str): Tipe model yang akan digunakan
         """
         try:
             self.logger.info(f"Loading Whisper model: {model_type}")
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            
-            # Set download root untuk model Whisper
+            device = "cuda" if self._cuda_available() else "cpu"
+            compute_type = "float16" if device == "cuda" else "int8"
+
             download_root = str(self.whisper_cache_dir)
-            
-            # Load model dengan cache directory yang sudah ditentukan
-            self.model = whisper.load_model(
-                model_type, 
+            download_root_path = Path(download_root)
+            download_root_path.mkdir(parents=True, exist_ok=True)
+
+            self.model = WhisperModel(
+                model_type,
                 device=device,
-                download_root=download_root
+                compute_type=compute_type,
+                download_root=download_root,
+                local_files_only=False,
             )
-            
-            self.logger.info(f"Whisper model loaded successfully on {device}")
+
+            self.logger.info(f"Whisper model loaded successfully on {device} ({compute_type})")
             self.logger.info(f"Model cache directory: {download_root}")
-            
-        except PermissionError as e:
-            self.logger.error(f"Permission error loading Whisper model: {str(e)}")
-            # Fallback ke temporary directory system
-            try:
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    self.model = whisper.load_model(
-                        model_type, 
-                        device=device,
-                        download_root=temp_dir
-                    )
-                    self.logger.info(f"Whisper model loaded with temporary directory fallback")
-            except Exception as fallback_error:
-                self.logger.error(f"Fallback also failed: {str(fallback_error)}")
-                raise
+
         except Exception as e:
             self.logger.error(f"Error loading Whisper model: {str(e)}")
-            # Coba alternatif lain
+            # Coba alternatif: home directory sebagai cache
             try:
-                # Gunakan home directory sebagai cache
                 home_cache = Path.home() / ".cache" / "whisper"
                 home_cache.mkdir(parents=True, exist_ok=True)
-                
-                self.model = whisper.load_model(
-                    model_type, 
-                    device=device,
-                    download_root=str(home_cache)
+
+                self.model = WhisperModel(
+                    model_type,
+                    device="cpu",
+                    compute_type="int8",
+                    download_root=str(home_cache),
                 )
-                self.logger.info(f"Whisper model loaded using home cache directory")
+                self.logger.info("Whisper model loaded using home cache directory")
             except Exception as final_error:
                 self.logger.error(f"All loading attempts failed: {str(final_error)}")
                 raise
+
+    @staticmethod
+    def _cuda_available():
+        try:
+            import torch
+            return torch.cuda.is_available()
+        except Exception:
+            return False
 
     def download_youtube_audio(self, url, max_retries=3):
         """
@@ -290,23 +286,30 @@ class AudioProcessor:
                 raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
             self.logger.info(f"Transcribing audio file: {audio_path}")
-            result = self.model.transcribe(
+            segments, info = self.model.transcribe(
                 str(audio_path),
                 language=language,
                 task="transcribe",
-                verbose=False
+                beam_size=5,
             )
-            
-            # Mengambil teks dari hasil transkripsi
-            if isinstance(result, dict) and 'text' in result:
-                full_text = result['text'].strip()
-            else:
-                # Jika format hasil berbeda, gabungkan teks dari segments
-                full_text = ' '.join([segment['text'].strip() for segment in result['segments']])
-            
+
+            # faster-whisper: segments adalah generator — gabungkan teks
+            segment_list = [
+                {
+                    'id': i,
+                    'seek': s.start,
+                    'start': s.start,
+                    'end': s.end,
+                    'text': s.text.strip(),
+                }
+                for i, s in enumerate(segments)
+            ]
+            full_text = ' '.join(seg['text'] for seg in segment_list).strip()
+
             self.logger.info("Transcription completed successfully")
             return {
                 'text': full_text,
+                'segments': segment_list,
                 'language': language
             }
             

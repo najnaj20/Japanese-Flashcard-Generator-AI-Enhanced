@@ -105,11 +105,11 @@ class FlashcardApp:
             return
             
         try:
-            # Check OpenAI API key first
-            openai_api_key = get_openai_api_key()
-            if not openai_api_key:
-                self._show_api_key_error()
-                return
+            # OpenAI API key opsional saat init — bisa diisi via Secrets/env;
+            # tanpa key, app tetap jalan tapi fitur AI akan error dengan pesan jelas.
+            openai_api_key = get_openai_api_key() or "missing-key"
+            if not get_openai_api_key():
+                st.warning("⚠️ OPENAI_API_KEY belum diisi — fitur AI tidak bisa dipakai sampai key ditambahkan (Sidebar/Secrets).")
             
             # Show initialization progress
             progress_bar = st.progress(0)
